@@ -1,22 +1,27 @@
-# Expense Tracker CLI
+# Expense Tracker
 
-Simple command-line expense tracker to manage personal finances.
+Aplicativo de linha de comando (CLI) em Python para controle de despesas pessoais, com registro, listagem, exclusao e resumos de gastos.
 
-Project from roadmap.sh:  
-https://roadmap.sh/projects/expense-tracker
+## Funcionalidades
 
-## Features
-- Add, update and delete expenses
-- List all expenses
-- View total and monthly summaries
-- Categories support
+- Adiciona despesas com descricao, valor e categoria.
+- Lista todas as despesas em formato de tabela.
+- Exclui despesas pelo ID.
+- Gera resumo do total geral ou de um mes especifico.
+- Armazenamento em arquivo JSON local (`expenses.json`).
 
-## Installation
+## Como usar
+
 ```bash
-git clone https://github.com/SEU_USUARIO/expense-tracker.git
-cd expense-tracker
+python main.py add --description "Mercado" --amount 150.50 --category alimentacao
+python main.py list
+python main.py summary
+python main.py summary --month 7
+python main.py delete --id 1
 ```
-Tech
-- Python
-- argparse
-- JSON File storage
+
+Sem dependencias externas, apenas a biblioteca padrao do Python.
+
+## Licenca
+
+MIT
