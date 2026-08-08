@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 import argparse
 import json
+import os
+import tempfile
 from pathlib import Path
 from datetime import datetime, date
 
@@ -9,7 +11,7 @@ DATA_FILE = Path("expenses.json")
 
 # ------------------ DATA ------------------
 
-def load_expenses():
+def load_expenses() -> list[dict]:
     if not DATA_FILE.exists():
         return []
 
@@ -20,33 +22,48 @@ def load_expenses():
                 return []
             return json.loads(content)
     except json.JSONDecodeError:
+        backup = DATA_FILE.with_suffix(DATA_FILE.suffix + ".corrupt")
+        os.replace(DATA_FILE, backup)
+        print(f"⚠ Arquivo JSON corrompido: renomeado para {backup.name}. Continuando com lista vazia.")
         return []
 
 
-def save_expenses(expenses):
-    with open(DATA_FILE, "w") as f:
-        json.dump(expenses, f, indent=2)
+def save_expenses(expenses: list[dict]) -> None:
+    tmp = tempfile.NamedTemporaryFile(
+        mode="w",
+        dir=DATA_FILE.parent,
+        prefix=DATA_FILE.name + ".",
+        suffix=".tmp",
+        delete=False,
+    )
+    try:
+        with tmp as f:
+            json.dump(expenses, f, indent=2)
+        os.replace(tmp.name, DATA_FILE)
+    except BaseException:
+        os.unlink(tmp.name)
+        raise
 
 
-def next_id(expenses):
+def next_id(expenses: list[dict]) -> int:
     return max((e["id"] for e in expenses), default=0) + 1
 
 
 # ------------------ FORMAT ------------------
 
-def money(value):
-    return f"${value:.2f}"
+def money(value: float) -> str:
+    return f"R$ {value:.2f}"
 
 
-def print_header(title):
+def print_header(title: str) -> None:
     print(f"\n=== {title.upper()} ===")
 
 
 # ------------------ COMMANDS ------------------
 
-def add_expense(description, amount, category):
+def add_expense(description: str, amount: float, category: str) -> None:
     if amount <= 0:
-        print("✖ Amount must be greater than zero.")
+        print("✖ O valor deve ser maior que zero.")
         return
 
     expenses = load_expenses()
@@ -62,18 +79,18 @@ def add_expense(description, amount, category):
     expenses.append(expense)
     save_expenses(expenses)
 
-    print(f"✔ Expense added successfully (ID: {expense['id']})")
+    print(f"✔ Despesa adicionada com sucesso (ID: {expense['id']})")
 
 
-def list_expenses():
+def list_expenses() -> None:
     expenses = load_expenses()
 
     if not expenses:
-        print("No expenses recorded.")
+        print("Nenhuma despesa registrada.")
         return
 
-    print_header("Expenses")
-    print(f"{'ID':<4} {'Date':<12} {'Description':<20} {'Category':<12} {'Amount':>10}")
+    print_header("Despesas")
+    print(f"{'ID':<4} {'Data':<12} {'Descrição':<20} {'Categoria':<12} {'Valor':>10}")
     print("-" * 60)
 
     for e in expenses:
@@ -86,57 +103,60 @@ def list_expenses():
         )
 
 
-def delete_expense(expense_id):
+def delete_expense(expense_id: int) -> None:
     expenses = load_expenses()
     updated = [e for e in expenses if e["id"] != expense_id]
 
     if len(expenses) == len(updated):
-        print("✖ Expense not found.")
+        print("✖ Despesa não encontrada.")
         return
 
     save_expenses(updated)
-    print("✔ Expense deleted successfully")
+    print("✔ Despesa excluída com sucesso")
 
 
-def summary(month=None):
+def summary(month: int | None = None) -> None:
     expenses = load_expenses()
     total = 0
 
     for e in expenses:
         if month:
-            if int(e["date"].split("-")[1]) != month:
+            try:
+                if int(e["date"].split("-")[1]) != month:
+                    continue
+            except (ValueError, IndexError):
                 continue
         total += e["amount"]
 
-    print_header("Summary")
+    print_header("Resumo")
     if month:
         month_name = datetime(1900, month, 1).strftime("%B")
-        print(f"Total expenses for {month_name}: {money(total)}")
+        print(f"Total de despesas em {month_name}: {money(total)}")
     else:
-        print(f"Total expenses: {money(total)}")
+        print(f"Total de despesas: {money(total)}")
 
 
 # ------------------ CLI ------------------
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(
         prog="expense-tracker",
-        description="A professional CLI expense tracking application"
+        description="Aplicativo profissional de controle de despesas via CLI"
     )
 
     sub = parser.add_subparsers(dest="command")
 
-    add = sub.add_parser("add", help="Add a new expense")
+    add = sub.add_parser("add", help="Adicionar nova despesa")
     add.add_argument("--description", required=True)
     add.add_argument("--amount", type=float, required=True)
-    add.add_argument("--category", default="General")
+    add.add_argument("--category", default="Geral")
 
-    sub.add_parser("list", help="List all expenses")
+    sub.add_parser("list", help="Listar todas as despesas")
 
-    delete = sub.add_parser("delete", help="Delete an expense")
+    delete = sub.add_parser("delete", help="Excluir uma despesa")
     delete.add_argument("--id", type=int, required=True)
 
-    summary_cmd = sub.add_parser("summary", help="Show expenses summary")
+    summary_cmd = sub.add_parser("summary", help="Exibir resumo de despesas")
     summary_cmd.add_argument("--month", type=int, choices=range(1, 13))
 
     args = parser.parse_args()

@@ -1,0 +1,4 @@
+expenses.json
+expenses.json.corrupt
+__pycache__/
+*.py[cod]
